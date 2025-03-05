@@ -66,7 +66,7 @@ exports.login = async (req, res) => {
     const { accessToken, refreshToken } = await generateTokens(user.user_id);
 
     res.cookie("refreshToken", refreshToken, cookieOptions);
-    res.json({ accessToken, role: user.user_role || "user" }); // Default role if null
+    res.json({ accessToken, role: user.user_role  }); // Default role if null
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ message: "Internal Server Error" });

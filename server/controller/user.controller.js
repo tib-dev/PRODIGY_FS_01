@@ -38,9 +38,9 @@ const createUser = async (req, res) => {
     // Insert user details into `user_detail`
     await db.query(
       "INSERT INTO user_detail (user_id, email, password, user_role) VALUES (?, ?, ?, ?)",
-      [userId, userData.email, hashedPassword, userData.user_role] // default role is 'user' if not provided
+      [userId, userData.email, hashedPassword, userData.user_role] 
     );
-   
+   console.log(userData.user_role);
     return res
       .status(201)
       .json({ success: true, userId, message: "User created successfully" });
