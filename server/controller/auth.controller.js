@@ -1,50 +1,56 @@
-const db = require("../config/db.config");
-const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const cookieOptions = { httpOnly: true, secure: true, sameSite: "Strict" };
 
-// Create a new user
-const createUser = async (req, res) => {
-  try {
-    const { username, first_name, last_name, password, email } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
+// Generate Access & Refresh Tokens
+const generateTokens = (user) => {
+  const accessToken = jwt.sign(
+    { userId: user.user_id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.TOKEN_EXPIRATION }
+  );
 
-    const [rows] = await db.query(
-      "INSERT INTO user (username, password, first_name, last_name, email) VALUES (?, ?, ?, ?, ?)",
-      [username, hashedPassword, first_name, last_name, email]
-    );
+  const refreshToken = jwt.sign(
+    { userId: user.user_id },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRATION }
+  );
 
-    res.status(201).json({ id: rows.insertId, username });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  return { accessToken, refreshToken };
 };
 
-// User login
-const loginUser = async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const [rows] = await db.query("SELECT * FROM user WHERE username = ?", [
-      username,
-    ]);
-
-    if (rows.length === 0) {
-      return res.status(400).json({ error: "Invalid username or password" });
-    }
-
-    const user = rows[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(400).json({ error: "Invalid username or password" });
-    }
-
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    res.status(200).json({ token });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+// User Login
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
+  const user = await db.query("SELECT * FROM user_detail WHERE email = ?", [email]);
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    return res.status(401).json({ message: "Invalid credentials" });
   }
+
+  const { accessToken, refreshToken } = generateTokens(user);
+
+  // Securely store refresh token in HTTP-only cookie
+  res.cookie("refreshToken", refreshToken, cookieOptions);
+
+  res.json({ accessToken, role: user.role });
 };
 
-module.exports = { createUser, loginUser };
+// Refresh Token (Token Rotation)
+exports.refreshToken = (req, res) => {
+  const { refreshToken } = req.cookies;
+  if (!refreshToken) return res.status(401).json({ message: "No token" });
+
+  jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ message: "Invalid token" });
+
+    const newTokens = generateTokens({ user_id: decoded.userId });
+    res.cookie("refreshToken", newTokens.refreshToken, cookieOptions);
+    res.json({ accessToken: newTokens.accessToken });
+  });
+};
+
+// Logout (Clear refresh token)
+exports.logout = (req, res) => {
+  res.clearCookie("refreshToken");
+  res.json({ message: "Logged out" });
+};
