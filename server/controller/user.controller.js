@@ -1,50 +1,54 @@
 const db = require("../config/db.config");
 const bcrypt = require("bcryptjs");
 
-const createUser = async (userData) => {
-  const connection = await db.getConnection(); // Get DB connection for transactions
-  await connection.beginTransaction(); // Start transaction
-
+const createUser = async (req, res) => {
+  const userData = req.body;
   try {
-    // Check if user already exists
-    const [existingUser] = await connection.query(
-      "SELECT * FROM user WHERE email = ?",
+    // Check if the email already exists in user_detail
+    const [existingUser] = await db.query(
+      "SELECT user_id FROM user_detail WHERE email = ?",
       [userData.email]
     );
-    if (existingUser.length > 0) {
-      await connection.release();
-      return { error: "User already exists" };
+    if (existingUser.length) {
+      return res
+        .status(400)
+        .json({ error: "User with this email already exists" });
     }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    // Ensure password is provided
+    if (!userData.password || userData.password.trim() === "") {
+      return res.status(400).json({ error: "Password is required" });
+    }
 
-    // Insert into `user` table
-    const [userRow] = await connection.query(
+    // Generate salt
+    const saltRounds = 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+
+    // Hash the password with salt
+    const hashedPassword = await bcrypt.hash(userData.password, salt);
+
+    // Insert user into `user` table
+    const [userRow] = await db.query(
       "INSERT INTO user (username, user_first_name, user_last_name) VALUES (?, ?, ?)",
       [userData.username, userData.user_first_name, userData.user_last_name]
     );
 
     const userId = userRow.insertId;
 
-    // Insert into `user_detail` table
-    await connection.query(
-      "INSERT INTO user_detail (user_id, email, password, role) VALUES (?, ?, ?, ?)",
-      [userId, userData.email, hashedPassword, userData.role]
+    // Insert user details into `user_detail`
+    await db.query(
+      "INSERT INTO user_detail (user_id, email, password, user_role) VALUES (?, ?, ?, ?)",
+      [userId, userData.email, hashedPassword, userData.user_role] // default role is 'user' if not provided
     );
-
-    // Commit transaction if both queries succeed
-    await connection.commit();
-    await connection.release();
-
-    return { success: true, userId };
+   
+    return res
+      .status(201)
+      .json({ success: true, userId, message: "User created successfully" });
   } catch (error) {
-    await connection.rollback(); // Rollback transaction if any error occurs
-    await connection.release();
-    return {
-      error: "An error occurred while creating the user",
-      details: error.message,
-    };
+    console.error("Create User Error:", error); // Log error for debugging
+    return res.status(500).json({
+      error: "An error occurred while creating the user. Please try again.",
+    });
   }
 };
 
