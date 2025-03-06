@@ -4,9 +4,12 @@ import { Link } from "react-router-dom";
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    name: "",
+    username: "",
+    user_first_name: "",
+    user_last_name: "",
     email: "",
     password: "",
+    user_role: "",
   });
 
   const handleChange = (e) => {
