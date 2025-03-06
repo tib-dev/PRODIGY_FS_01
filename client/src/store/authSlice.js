@@ -1,5 +1,19 @@
+// store/authSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { setCookie, getCookie, removeCookie } from "../util/cookie"; // Cookie helpers
+import { decodeTokenPayload } from "../util/helper"; // Decode token helper
 import { axiosInstance } from "../api/axios";
+
+// Helper to create user object from decoded token
+const createUserObject = (data) => {
+  const decodedToken = decodeTokenPayload(data.accessToken);
+  return {
+    ...data,
+    user_role: decodedToken.user_role,
+    user_first_name: decodedToken.user_first_name,
+    username: decodedToken.username,
+  };
+};
 
 // Login user
 export const login = createAsyncThunk(
@@ -10,6 +24,19 @@ export const login = createAsyncThunk(
         email,
         password,
       });
+
+      // Set accessToken and refreshToken in cookies
+      setCookie("accessToken", response.data.accessToken, {
+        path: "/",
+        secure: true,
+        httpOnly: true,
+      });
+      setCookie("refreshToken", response.data.refreshToken, {
+        path: "/",
+        secure: true,
+        httpOnly: true,
+      });
+
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Login failed");
@@ -22,7 +49,21 @@ export const refreshToken = createAsyncThunk(
   "auth/refreshToken",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post("/api/auth/refresh-token");
+      const refreshToken = getCookie("refreshToken");
+      if (!refreshToken) {
+        return rejectWithValue("No refresh token found");
+      }
+      const response = await axiosInstance.post("/api/auth/refresh-token", {
+        refreshToken,
+      });
+
+      // Set new access token in cookies
+      setCookie("accessToken", response.data.accessToken, {
+        path: "/",
+        secure: true,
+        httpOnly: true,
+      });
+
       return response.data;
     } catch (error) {
       return rejectWithValue("Session expired, please login again");
@@ -36,6 +77,8 @@ export const logout = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await axiosInstance.post("/api/auth/logout");
+      removeCookie("accessToken");
+      removeCookie("refreshToken");
       return true;
     } catch (error) {
       return rejectWithValue("Logout failed");
@@ -63,6 +106,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.accessToken = action.payload.accessToken;
         state.role = action.payload.role;
+        state.user = createUserObject(action.payload);
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
@@ -84,4 +128,5 @@ const authSlice = createSlice({
   },
 });
 
+export const selectUser = (state) => state.auth.user;
 export default authSlice.reducer;

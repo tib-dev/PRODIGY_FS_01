@@ -1,4 +1,3 @@
-
 // Function to decode the payload from the token
 export const decodeTokenPayload = (token) => {
   try {
@@ -52,6 +51,7 @@ export const validateEmail = (user_email) => {
 };
 
 // Function to validate password and ensure it is strong
+// helpers/passwordHelper.js
 
 export const validatePassword = (user_password) => {
   const validations = [

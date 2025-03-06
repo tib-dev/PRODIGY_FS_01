@@ -8,15 +8,14 @@ import IconButton from "@mui/material/IconButton";
 import MenuIcon from "@mui/icons-material/Menu";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { logout } from "../store/authSlice";
-
-
+import { logout, selectUser } from "../store/authSlice";
 
 export default function ButtonAppBar() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { accessToken } = useSelector((state) => state.auth); // Check if user is logged in
-
+  const user = useSelector(selectUser);
+  console.log(user);
   const handleLogout = () => {
     dispatch(logout());
     navigate("/login"); // Redirect to login after logout

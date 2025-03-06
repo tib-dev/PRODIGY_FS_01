@@ -1,10 +1,3 @@
-import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "./authSlice";
-import registerReducer from "./registerSlice"; // Renamed for consistency
+import { createStoreInstance } from "./storeConfig";
 
-export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    register: registerReducer,
-  },
-});
+export const store = createStoreInstance();

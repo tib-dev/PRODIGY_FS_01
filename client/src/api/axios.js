@@ -1,16 +1,17 @@
+// api/axios.js
 import axios from "axios";
-import { logout, refreshToken } from "../store/authSlice";
-
+import { getCookie, setCookie } from "../util/cookie"; // Cookie helpers
+import { logout } from "../store/authSlice"; // Assuming you have a logout action
 
 export const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL, // Add your API URL here
   withCredentials: true, // Allows cookies (for refresh token)
 });
 
-// Request Interceptor: Attach Access Token
+// Request Interceptor: Attach Access Token from Cookies
 axiosInstance.interceptors.request.use(
   (config) => {
-    const accessToken = store.getState().auth.accessToken; // Get token from Redux store
+    const accessToken = getCookie("accessToken"); // Get token from cookies
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -27,14 +28,24 @@ axiosInstance.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+
       try {
-        const { payload } = await store.dispatch(refreshToken()); // Dispatch refresh action
-        if (payload?.accessToken) {
-          originalRequest.headers.Authorization = `Bearer ${payload.accessToken}`;
-          return axiosInstance(originalRequest); // Retry the failed request
+        // Manually trigger refresh token flow by calling your refresh endpoint
+        const refreshToken = getCookie("refreshToken");
+        if (refreshToken) {
+          const response = await axios.post("/api/auth/refresh-token", {
+            refreshToken,
+          });
+          const { accessToken } = response.data;
+
+          // Store new accessToken and retry original request
+          setCookie("accessToken", accessToken); // Update cookie with new token
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return axios(originalRequest); // Retry the failed request
         }
       } catch (refreshError) {
-        store.dispatch(logout()); // Logout if refresh fails
+        // If refresh fails, logout the user
+        logout();
         return Promise.reject(refreshError);
       }
     }
