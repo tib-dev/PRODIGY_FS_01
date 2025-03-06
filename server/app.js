@@ -6,6 +6,7 @@ const cors = require("cors");
 
 const corsOptions = {
   origin: process.env.FRONT_END_URL,
+  credentials: true, // 🔥 Important for cookies/tokens
   optionsSuccessStatus: 200,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],

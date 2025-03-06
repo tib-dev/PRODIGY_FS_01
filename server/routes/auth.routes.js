@@ -14,12 +14,12 @@ const { body, validationResult } = require("express-validator");
 
 // Validation middleware for register
 router.post(
-  "/api/register",
+  "/api/user/register",
   [
     body("email").isEmail().withMessage("Invalid email address"),
     body("password")
       .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters long"),
+      .withMessage("Password must be at least 8 characters long"),
     body("username").notEmpty().withMessage("Username is required"),
     body("user_first_name").notEmpty().withMessage("First name is required"),
     body("user_last_name").notEmpty().withMessage("Last name is required"),
@@ -34,9 +34,9 @@ router.post(
   user.createUser
 );
 
-router.post("/api/login", login);
-router.post("/api/refresh-token", refreshToken);
-router.post("/api/logout", logout);
+router.post("/api/auth/login", login);
+router.post("/api/auth/refresh-token", refreshToken);
+router.post("/api/auth/logout", logout);
 
 // Protected Route (Only for Admins)
 router.get(
