@@ -38,9 +38,9 @@ const createUser = async (req, res) => {
     // Insert user details into `user_detail`
     await db.query(
       "INSERT INTO user_detail (user_id, email, password, user_role) VALUES (?, ?, ?, ?)",
-      [userId, userData.email, hashedPassword, userData.user_role] 
+      [userId, userData.email, hashedPassword, userData.user_role]
     );
-   console.log(userData.user_role);
+    console.log(userData.user_role);
     return res
       .status(201)
       .json({ success: true, userId, message: "User created successfully" });
@@ -52,4 +52,37 @@ const createUser = async (req, res) => {
   }
 };
 
-module.exports = { createUser };
+const getUserByEmail = async (email) => {
+  try {
+    // Retrieve user from user_detail table
+    const [users] = await db.query(
+      "SELECT * FROM user_detail WHERE email = ?",
+      [email]
+    );
+
+    if (!users.length) {
+      console.log("User not found");
+      return null; // Return null if user is not found
+    }
+
+   
+    const user_id = users[0].user_id;
+
+    // Retrieve user from user table
+    const [users2] = await db.query("SELECT * FROM user WHERE user_id = ?", [
+      user_id,
+    ]);
+
+    // Merge user details
+    const userData = { ...users[0], ...(users2[0] || {}) };
+
+  
+    return userData;
+  } catch (error) {
+    console.error("Get User Error:", error);
+    return null; // Return null in case of error
+  }
+};
+
+
+module.exports = { createUser, getUserByEmail };
