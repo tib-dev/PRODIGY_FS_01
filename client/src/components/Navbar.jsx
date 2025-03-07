@@ -1,31 +1,45 @@
 import React from "react";
-import AppBar from "@mui/material/AppBar";
-import Box from "@mui/material/Box";
-import Toolbar from "@mui/material/Toolbar";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
+import {
+  AppBar,
+  Box,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Avatar,
+} from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { Link, useNavigate } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { logout, selectUser } from "../store/authSlice";
 
 export default function ButtonAppBar() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { accessToken } = useSelector((state) => state.auth); // Check if user is logged in
-  const user = useSelector(selectUser);
-  console.log(user);
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login"); // Redirect to login after logout
+  const user = useSelector(selectUser); // User information from Redux
+  const accessToken = useSelector((state) => state.auth.accessToken); // Access token from Redux
+
+  const handleLogout = async () => {
+    try {
+      await dispatch(logout()).unwrap(); // Ensure logout completes
+
+      // Clear cookies for accessToken and refreshToken
+      document.cookie =
+        "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie =
+        "refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+      navigate("/login"); // Redirect to login
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
         <Toolbar>
-          {/* Menu Icon (Mobile) */}
+          {/* Menu Icon (For Mobile) */}
           <IconButton
             size="large"
             edge="start"
@@ -41,17 +55,34 @@ export default function ButtonAppBar() {
             variant="h6"
             component={Link}
             to="/"
-            sx={{ flexGrow: 1, textDecoration: "none", color: "inherit" }}
+            sx={{
+              flexGrow: 1,
+              textDecoration: "none",
+              color: "inherit",
+              fontWeight: "bold",
+            }}
           >
             Home
           </Typography>
 
-          {/* Buttons (Login/Register OR Logout) */}
-          <Box sx={{ display: { xs: "none", md: "flex" }, ml: "auto" }}>
+          {/* Authentication Buttons */}
+          <Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
             {accessToken ? (
-              <Button color="inherit" onClick={handleLogout}>
-                Logout
-              </Button>
+              <>
+                <Button component={Link} to="/admin" color="inherit">
+                  Admin Dashboard
+                </Button>
+                <Button color="inherit" onClick={handleLogout}>
+                  Logout
+                </Button>
+                {user && (
+                  <Avatar
+                    alt={user.username || "User"}
+                    src={user.avatar || "/static/images/avatar/default.png"}
+                    sx={{ ml: 2, width: 40, height: 40 }}
+                  />
+                )}
+              </>
             ) : (
               <>
                 <Button component={Link} to="/login" color="inherit">

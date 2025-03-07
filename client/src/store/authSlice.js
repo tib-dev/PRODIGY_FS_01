@@ -6,13 +6,18 @@ import { axiosInstance } from "../api/axios";
 
 // Helper to create user object from decoded token
 const createUserObject = (data) => {
-  const decodedToken = decodeTokenPayload(data.accessToken);
-  return {
-    ...data,
-    user_role: decodedToken.user_role,
-    user_first_name: decodedToken.user_first_name,
-    username: decodedToken.username,
-  };
+  try {
+    const decodedToken = decodeTokenPayload(data.accessToken);
+    return {
+      user_first_name: decodedToken.user_first_name,
+      user_id: decodedToken.user_id,
+      user_role: decodedToken.user_role,
+      username: decodedToken.username,
+    };
+  } catch (error) {
+    console.error("Error decoding token:", error);
+    return null;
+  }
 };
 
 // Login user
@@ -25,20 +30,12 @@ export const login = createAsyncThunk(
         password,
       });
 
-      // Set accessToken and refreshToken in cookies
-      setCookie("accessToken", response.data.accessToken, {
-        path: "/",
-        secure: true,
-        httpOnly: true,
-      });
-      setCookie("refreshToken", response.data.refreshToken, {
-        path: "/",
-        secure: true,
-        httpOnly: true,
-      });
+      // Set accessToken in cookies (refreshToken is handled by the backend)
+      setCookie("accessToken", response.data.accessToken, { path: "/" });
 
       return response.data;
     } catch (error) {
+      console.error("Login error:", error);
       return rejectWithValue(error.response?.data?.message || "Login failed");
     }
   }
@@ -53,19 +50,17 @@ export const refreshToken = createAsyncThunk(
       if (!refreshToken) {
         return rejectWithValue("No refresh token found");
       }
+
       const response = await axiosInstance.post("/api/auth/refresh-token", {
         refreshToken,
       });
 
       // Set new access token in cookies
-      setCookie("accessToken", response.data.accessToken, {
-        path: "/",
-        secure: true,
-        httpOnly: true,
-      });
+      setCookie("accessToken", response.data.accessToken, { path: "/" });
 
       return response.data;
     } catch (error) {
+      console.error("Token refresh error:", error);
       return rejectWithValue("Session expired, please login again");
     }
   }
@@ -77,10 +72,14 @@ export const logout = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await axiosInstance.post("/api/auth/logout");
+
+      // Clear cookies
       removeCookie("accessToken");
       removeCookie("refreshToken");
+
       return true;
     } catch (error) {
+      console.error("Logout error:", error);
       return rejectWithValue("Logout failed");
     }
   }
@@ -98,6 +97,7 @@ const authSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+      // Login
       .addCase(login.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -112,14 +112,19 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
+      // Refresh Token
       .addCase(refreshToken.fulfilled, (state, action) => {
         state.accessToken = action.payload.accessToken;
       })
       .addCase(refreshToken.rejected, (state) => {
+        // Clear user session on failed refresh
         state.accessToken = null;
         state.user = null;
         state.role = null;
       })
+
+      // Logout
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
         state.accessToken = null;
@@ -128,5 +133,6 @@ const authSlice = createSlice({
   },
 });
 
+// Selectors
 export const selectUser = (state) => state.auth.user;
 export default authSlice.reducer;
